@@ -1,0 +1,240 @@
+{
+  "pe-services": [
+    {
+      "name": "AllowAll443InFromVnet",
+      "properties": {
+        "protocol": "Tcp",
+        "sourcePortRange": "*",
+        "sourceAddressPrefix": "VirtualNetwork",
+        "destinationPortRange": "443",
+        "destinationAddressPrefix": "VirtualNetwork",
+        "access": "Allow",
+        "priority": 100,
+        "direction": "Inbound"
+      }
+    },
+    {
+      "name": "DenyAllInBound",
+      "properties": {
+        "protocol": "*",
+        "sourcePortRange": "*",
+        "sourceAddressPrefix": "*",
+        "destinationPortRange": "*",
+        "destinationAddressPrefix": "*",
+        "access": "Deny",
+        "priority": 1000,
+        "direction": "Inbound"
+      }
+    },
+    {
+      "name": "DenyAllOutBound",
+      "properties": {
+        "protocol": "*",
+        "sourcePortRange": "*",
+        "sourceAddressPrefix": "*",
+        "destinationPortRange": "*",
+        "destinationAddressPrefix": "*",
+        "access": "Deny",
+        "priority": 1000,
+        "direction": "Outbound"
+      }
+    }
+  ],
+  "appgw": [],
+  "apim": [
+    {
+      "name": "Client_Communication_to_API_Management",
+      "properties": {
+        "priority": 100,
+        "direction": "Inbound",
+        "sourceAddressPrefix": "Internet",
+        "sourcePortRange": "*",
+        "destinationAddressPrefix": "VirtualNetwork",
+        "destinationPortRanges": [
+          "443"
+        ],
+        "protocol": "TCP",
+        "access": "Allow",
+        "description": "Client communication to API Management"
+      }
+    },
+    {
+      "name": "Management_Endpoint_for_Azure_Portal_and_PowerShell",
+      "properties": {
+        "priority": 110,
+        "direction": "Inbound",
+        "sourceAddressPrefix": "ApiManagement",
+        "sourcePortRange": "*",
+        "destinationAddressPrefix": "VirtualNetwork",
+        "destinationPortRanges": [
+          "3443"
+        ],
+        "protocol": "TCP",
+        "access": "Allow",
+        "description": "Management endpoint for Azure portal and PowerShell"
+      }
+    },
+    {
+      "name": "Azure_Loadbalancer",
+      "properties": {
+        "priority": 120,
+        "direction": "Inbound",
+        "sourceAddressPrefix": "AzureLoadBalancer",
+        "sourcePortRange": "*",
+        "destinationAddressPrefix": "VirtualNetwork",
+        "destinationPortRanges": [
+          "6390"
+        ],
+        "protocol": "TCP",
+        "access": "Allow",
+        "description": "Azure Infrastructure Load Balancer"
+      }
+    },
+    {
+      "name": "Azure_Traffic_Manager",
+      "properties": {
+        "priority": 130,
+        "direction": "Inbound",
+        "sourceAddressPrefix": "AzureTrafficManager",
+        "sourcePortRange": "*",
+        "destinationAddressPrefix": "VirtualNetwork",
+        "destinationPortRanges": [
+          "443"
+        ],
+        "protocol": "TCP",
+        "access": "Allow",
+        "description": "Azure Traffic Manager routing for multi-region deployment"
+      }
+    },
+    {
+      "name": "Validation_and_Management_of_Certificates",
+      "properties": {
+        "priority": 100,
+        "direction": "Outbound",
+        "sourceAddressPrefix": "VirtualNetwork",
+        "sourcePortRange": "*",
+        "destinationAddressPrefix": "Internet",
+        "destinationPortRanges": [
+          "80"
+        ],
+        "protocol": "TCP",
+        "access": "Allow",
+        "description": "Validation and management of Microsoft-managed and customer-managed certificates"
+      }
+    },
+    {
+      "name": "Dependency_on_Azure_Storage",
+      "properties": {
+        "priority": 110,
+        "direction": "Outbound",
+        "sourceAddressPrefix": "VirtualNetwork",
+        "sourcePortRange": "*",
+        "destinationAddressPrefix": "Storage",
+        "destinationPortRanges": [
+          "443"
+        ],
+        "protocol": "TCP",
+        "access": "Allow",
+        "description": "Dependency on Azure Storage"
+      }
+    },
+    {
+      "name": "Dependency_on_Azure_Active_Directory",
+      "properties": {
+        "priority": 120,
+        "direction": "Outbound",
+        "sourceAddressPrefix": "VirtualNetwork",
+        "sourcePortRange": "*",
+        "destinationAddressPrefix": "AzureActiveDirectory",
+        "destinationPortRanges": [
+          "443"
+        ],
+        "protocol": "TCP",
+        "access": "Allow",
+        "description": "Microsoft Entra ID, Microsoft Graph, and Azure Key Vault"
+      }
+    },
+    {
+      "name": "Dependency_on_Azure_SQL",
+      "properties": {
+        "priority": 130,
+        "direction": "Outbound",
+        "sourceAddressPrefix": "VirtualNetwork",
+        "sourcePortRange": "*",
+        "destinationAddressPrefix": "Sql",
+        "destinationPortRanges": [
+          "1433"
+        ],
+        "protocol": "TCP",
+        "access": "Allow",
+        "description": "Access to Azure SQL endpoints"
+      }
+    },
+    {
+      "name": "Dependency_on_Azure_Key_Vault",
+      "properties": {
+        "priority": 140,
+        "direction": "Outbound",
+        "sourceAddressPrefix": "VirtualNetwork",
+        "sourcePortRange": "*",
+        "destinationAddressPrefix": "AzureKeyVault",
+        "destinationPortRanges": [
+          "443"
+        ],
+        "protocol": "TCP",
+        "access": "Allow",
+        "description": "Access to Azure Key Vault"
+      }
+    },
+    {
+      "name": "Dependency_on_Event_Hubs",
+      "properties": {
+        "priority": 150,
+        "direction": "Outbound",
+        "sourceAddressPrefix": "VirtualNetwork",
+        "sourcePortRange": "*",
+        "destinationAddressPrefix": "EventHub",
+        "destinationPortRanges": [
+          "5671",
+          "5672",
+          "443"
+        ],
+        "protocol": "TCP",
+        "access": "Allow",
+        "description": "Dependency for Log to Azure Event Hubs policy (optional)"
+      }
+    },
+    {
+      "name": "Dependency_on_Azure_Monitor",
+      "properties": {
+        "priority": 160,
+        "direction": "Outbound",
+        "sourceAddressPrefix": "VirtualNetwork",
+        "sourcePortRange": "*",
+        "destinationAddressPrefix": "AzureMonitor",
+        "destinationPortRanges": [
+          "1886",
+          "443"
+        ],
+        "protocol": "TCP",
+        "access": "Allow",
+        "description": "Publish Diagnostics Logs and Metrics"
+      }
+    },
+    {
+      "name": "Deny_All_Internet_Outbound",
+      "properties": {
+        "priority": 999,
+        "direction": "Outbound",
+        "sourceAddressPrefix": "VirtualNetwork",
+        "sourcePortRange": "*",
+        "destinationAddressPrefix": "Internet",
+        "destinationPortRange": "*",
+        "protocol": "TCP",
+        "access": "Deny",
+        "description": "Default Deny All Internet Outbound"
+      }
+    }
+  ],
+  "workloads": []
+}

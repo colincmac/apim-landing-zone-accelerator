@@ -37,7 +37,7 @@ type apimRegionalSettings = {
     capacity: int
 
     @sys.description('Optional. Name of the Sku.')
-    name: ('Basic' | 'BasicV2' | 'Consumption' | 'Developer' | 'Premium' | 'Standard' | 'StandardV2' | null)
+    name: ('Premium' | 'PremiumV2' | null)
   }
 
   @sys.description('Optional. A list of availability zones denoting where the resource needs to come from.')

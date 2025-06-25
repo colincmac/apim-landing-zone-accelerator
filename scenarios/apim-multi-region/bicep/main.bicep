@@ -6,11 +6,11 @@ import * as helpers from './modules/helpers.bicep'
 import { apimRegionalSettings } from './modules/types.bicep'
 
 // Parameters
-@description('A short name for the workload being deployed alphanumberic only')
+@description('Required. A short name for the workload being deployed alphanumberic only')
 @maxLength(8)
 param workloadName string
 
-@description('The environment for which the deployment is being executed')
+@description('Required. The environment for which the deployment is being executed')
 @allowed([
   'dev'
   'uat'
@@ -19,10 +19,10 @@ param workloadName string
 ])
 param environment string
 
-@description('The host for the Application Gateway. Example - api.contoso.com. This will be prefixed with the environment and location for each APIM Gateway region.')
+@description('Required. The host for the Application Gateway. Example - api.contoso.com. This will be prefixed with the environment and location for each APIM Gateway region.')
 param appGatewayHost string
 
-@description('The password for the TLS certificate for the Application Gateway.  The pfx file needs to be copied to scenarios/apim-baseline/bicep/gateway/certs/appgw.pfx')
+@description('Optional. The password for the TLS certificate for the Application Gateway.  The pfx file needs to be copied to scenarios/apim-baseline/bicep/gateway/certs/appgw.pfx')
 param certKey string = 'placeholder'
 param certData string = 'placeholder'
 
@@ -33,6 +33,7 @@ param certData string = 'placeholder'
 ])
 param appGatewayCertType string
 
+@description('Required. The configuration for the API Management Service primary region.')
 param primaryApim apimRegionalSettings
 
 param secondaryApim apimRegionalSettings
@@ -83,7 +84,55 @@ param tags object = {
 }
 
 
-// Resource Names
+// Variables
+var nsgRules = loadJsonContent('./modules/nsgrules.json')
+var primaryVnetAddressPrefix = '10.0.0.0/16'
+var secondaryVnetAddressPrefix = '10.1.0.0/16'
+var primarySubnets = [
+  {
+    name: 'apim'
+    addressPrefix: cidrSubnet(primaryVnetAddressPrefix, 24, 0),
+    nsgRules: nsgRules.apim
+  }
+  {
+    name: 'appgw'
+    addressPrefix: cidrSubnet(primaryVnetAddressPrefix, 24, 1),
+    nsgRules: nsgRules.appgw
+  }
+  {
+    name: 'pe-services'
+    addressPrefix: cidrSubnet(primaryVnetAddressPrefix, 24, 2),
+    nsgRules: nsgRules['pe-services']
+  }
+  {
+    name: 'workloads'
+    addressPrefix: cidrSubnet(primaryVnetAddressPrefix, 24, 3)
+    nsgRules: nsgRules.workloads
+  }
+]
+var secondarySubnets = [
+  {
+    name: 'apim'
+    addressPrefix: cidrSubnet(secondaryVnetAddressPrefix, 24, 0)
+    nsgRules: nsgRules.apim
+  }
+  {
+    name: 'appgw'
+    addressPrefix: cidrSubnet(secondaryVnetAddressPrefix, 24, 1)
+    nsgRules: nsgRules.appgw
+  }
+  {
+    name: 'pe-services'
+    addressPrefix: cidrSubnet(secondaryVnetAddressPrefix, 24, 2)
+    nsgRules: nsgRules['pe-services']
+  }
+  {
+    name: 'workloads'
+    addressPrefix: cidrSubnet(secondaryVnetAddressPrefix, 24, 3)
+    nsgRules: nsgRules.workloads
+  }
+]
+
 var resourceNames = {
   networkingRg: helpers.generateResourceName('resourceGroup', workloadName, environment, primaryApim.location, '-networking', null)
   sharedRg: helpers.generateResourceName('resourceGroup', workloadName, environment, primaryApim.location, '-shared', null)
@@ -129,6 +178,53 @@ module apimRG 'br/public:avm/res/resources/resource-group:0.4.1' = {
     enableTelemetry: enableTelemetry
   }
 }
+// map(primarySubnets, (subnet) => {
+//       name: subnet.name
+//       addressPrefix: subnet.addressPrefix
+//       networkSecurityGroup: {
+//         id: ''
+//       }
+//     })
+
+module primaryNsgs 'br/public:avm/res/network/network-security-group:0.5.1' = [for item in primarySubnets: {
+  name: '${item.name}-primary-nsg'
+  scope: resourceGroup(networkingRG.name)
+  params:{
+    name: item.name
+    location: primaryApim.location
+    tags: tags
+    enableTelemetry: enableTelemetry
+    securityRules: item.nsgRules
+  }
+}]
+
+module secondaryNsgs 'br/public:avm/res/network/network-security-group:0.5.1' = [for item in secondarySubnets: {
+  name: '${item.name}-secondary-nsg'
+  scope: resourceGroup(networkingRG.name)
+  params:{
+    name: item.name
+    location: secondaryApim.location
+    tags: tags
+    enableTelemetry: enableTelemetry
+    securityRules: item.nsgRules
+  }
+}]
+module vnetPrimary 'br/public:avm/res/network/virtual-network:0.7.0' = {
+  name: resourceNames.vnetPrimary
+  scope: resourceGroup(networkingRG.name)
+  params: {
+    addressPrefixes: array(primaryVnetAddressPrefix)
+    subnets: [
+      {
+        name: 'apim'
+        addressPrefix: ''
+
+      }
+    ]
+    name: resourceNames.vnetPrimary
+    location: primaryApim.location
+  }
+}
 
 module apimPrimary 'br/public:avm/res/api-management/service:0.9.1' = {
   name: resourceNames.apimPrimary
@@ -140,11 +236,15 @@ module apimPrimary 'br/public:avm/res/api-management/service:0.9.1' = {
     location: primaryApim.location
     publisherEmail: publisherEmail
     publisherName: publisherName
-    sku: primaryApim.sku.?name
+    sku: any(primaryApim.sku.?name) // only supporting a subset of skus for multi-region
+    skuCapacity: secondaryApim.sku.?capacity
+    virtualNetworkType: 'External'
+    subnetResourceId: primaryApim.apimSubnetId
     additionalLocations: [
       {
         location: secondaryApim.location
-        sku: secondaryApim.sku
+        sku: any(secondaryApim.sku.?name) // only supporting a subset of skus for multi-region
+        capacity: secondaryApim.sku.?capacity
         virtualNetworkConfiguration: {
           subnetResourceId: ''
         }
