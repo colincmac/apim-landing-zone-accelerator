@@ -53,7 +53,7 @@
         "destinationPortRanges": [
           "443"
         ],
-        "protocol": "TCP",
+        "protocol": "Tcp",
         "access": "Allow",
         "description": "Client communication to API Management"
       }
@@ -69,7 +69,7 @@
         "destinationPortRanges": [
           "3443"
         ],
-        "protocol": "TCP",
+        "protocol": "Tcp",
         "access": "Allow",
         "description": "Management endpoint for Azure portal and PowerShell"
       }
@@ -85,7 +85,7 @@
         "destinationPortRanges": [
           "6390"
         ],
-        "protocol": "TCP",
+        "protocol": "Tcp",
         "access": "Allow",
         "description": "Azure Infrastructure Load Balancer"
       }
@@ -101,7 +101,7 @@
         "destinationPortRanges": [
           "443"
         ],
-        "protocol": "TCP",
+        "protocol": "Tcp",
         "access": "Allow",
         "description": "Azure Traffic Manager routing for multi-region deployment"
       }
@@ -117,7 +117,7 @@
         "destinationPortRanges": [
           "80"
         ],
-        "protocol": "TCP",
+        "protocol": "Tcp",
         "access": "Allow",
         "description": "Validation and management of Microsoft-managed and customer-managed certificates"
       }
@@ -133,7 +133,7 @@
         "destinationPortRanges": [
           "443"
         ],
-        "protocol": "TCP",
+        "protocol": "Tcp",
         "access": "Allow",
         "description": "Dependency on Azure Storage"
       }
@@ -149,7 +149,7 @@
         "destinationPortRanges": [
           "443"
         ],
-        "protocol": "TCP",
+        "protocol": "Tcp",
         "access": "Allow",
         "description": "Microsoft Entra ID, Microsoft Graph, and Azure Key Vault"
       }
@@ -165,7 +165,7 @@
         "destinationPortRanges": [
           "1433"
         ],
-        "protocol": "TCP",
+        "protocol": "Tcp",
         "access": "Allow",
         "description": "Access to Azure SQL endpoints"
       }
@@ -181,7 +181,7 @@
         "destinationPortRanges": [
           "443"
         ],
-        "protocol": "TCP",
+        "protocol": "Tcp",
         "access": "Allow",
         "description": "Access to Azure Key Vault"
       }
@@ -199,7 +199,7 @@
           "5672",
           "443"
         ],
-        "protocol": "TCP",
+        "protocol": "Tcp",
         "access": "Allow",
         "description": "Dependency for Log to Azure Event Hubs policy (optional)"
       }
@@ -216,7 +216,7 @@
           "1886",
           "443"
         ],
-        "protocol": "TCP",
+        "protocol": "Tcp",
         "access": "Allow",
         "description": "Publish Diagnostics Logs and Metrics"
       }
@@ -230,7 +230,7 @@
         "sourcePortRange": "*",
         "destinationAddressPrefix": "Internet",
         "destinationPortRange": "*",
-        "protocol": "TCP",
+        "protocol": "Tcp",
         "access": "Deny",
         "description": "Default Deny All Internet Outbound"
       }

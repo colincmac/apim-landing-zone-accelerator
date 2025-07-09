@@ -42,4 +42,5 @@ type apimRegionalSettings = {
 
   @sys.description('Optional. A list of availability zones denoting where the resource needs to come from.')
   availabilityZones: (1 | 2 | 3)[]?
+
 }
