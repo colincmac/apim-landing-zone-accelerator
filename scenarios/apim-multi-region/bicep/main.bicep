@@ -19,6 +19,15 @@ param workloadName string = 'wdgtst01'
 ])
 param environment string = 'dev'
 
+@description('The FQDN for the Application Gateway. Example - api.contoso.com.')
+param appGatewayFqdn string
+
+@description('The password for the TLS certificate for the Application Gateway.  The pfx file needs to be copied to scenarios/apim-baseline/bicep/gateway/certs/appgw.pfx')
+param certKey string = 'placeholder'
+param certData string = 'placeholder'
+
+@description('Set to selfsigned if self signed certificates should be used for the Application Gateway. Set to custom and copy the pfx file to scenarios/apim-baseline/bicep/gateway/certs/appgw.pfx if custom certificates are to be used')
+param appGatewayCertType string
 // @description('Required. The host for the Application Gateway. Example - api.contoso.com. This will be prefixed with the environment and location for each APIM Gateway region.')
 // param appGatewayHost string
 
@@ -135,7 +144,10 @@ var resourceNames = {
   networkingRg: helpers.generateResourceName('resourceGroup', workloadName, environment, primaryApim.location, '-networking', null)
   sharedRg: helpers.generateResourceName('resourceGroup', workloadName, environment, primaryApim.location, '-shared', null)
   apimRg: helpers.generateResourceName('resourceGroup', workloadName, environment, primaryApim.location, '-apim', null)
-  
+
+  keyVault: helpers.generateResourceName('keyVault', workloadName, environment, primaryApim.location, '-keyvault', null)
+  managedIdentity: helpers.generateResourceName('userManagedIdentity', workloadName, environment, primaryApim.location, '-identity', null)
+
   // Primary
   apimPrimary: helpers.generateResourceName('apiManagement', workloadName, environment, primaryApim.location, null, null)
   vnetPrimary: helpers.generateResourceName('virtualNetwork', workloadName, environment, primaryApim.location, null, null)
@@ -176,6 +188,7 @@ module apimRG 'br/public:avm/res/resources/resource-group:0.4.1' = {
     enableTelemetry: enableTelemetry
   }
 }
+
 
 module primaryNsgs 'br/public:avm/res/network/network-security-group:0.5.1' = [for item in primarySubnets: {
   name: '${item.name}-primary-nsg-deploy'
@@ -245,13 +258,80 @@ module vnetSecondary 'br/public:avm/res/network/virtual-network:0.7.0' = {
   }
 }
 
+
+
+module privateLinkPrivateDnsZones 'br/public:avm/ptn/network/private-link-private-dns-zones:0.6.0' = {
+  name: 'privateLinkPrivateDnsZonesDeployment'
+  scope: resourceGroup(resourceNames.sharedRg)
+  params: {
+    privateLinkPrivateDnsZones: [
+      #disable-next-line no-hardcoded-env-urls
+      'privatelink.blob.core.windows.net'
+      #disable-next-line no-hardcoded-env-urls
+      'privatelink.queue.core.windows.net'
+      #disable-next-line no-hardcoded-env-urls
+      'privatelink.table.core.windows.net'
+      #disable-next-line no-hardcoded-env-urls
+      'privatelink.file.core.windows.net'
+      'privatelink.azure-api.net'
+      'privatelink.vaultcore.azure.net'
+    ]
+    virtualNetworkLinks: [
+      {
+        virtualNetworkResourceId: vnetPrimary.outputs.resourceId
+        name: 'primary-vnet-link'
+      }
+      {
+        virtualNetworkResourceId: vnetSecondary.outputs.resourceId
+        name: 'secondary-vnet-link'
+      }
+    ]
+  }
+}
+
+module userIdentity 'br/public:avm/res/managed-identity/user-assigned-identity:0.4.1' = {
+  name: 'deployment-identity'
+  scope: resourceGroup(resourceNames.sharedRg)
+  params: {
+    name: resourceNames.managedIdentity
+    location: primaryApim.location
+    tags: tags
+    enableTelemetry: enableTelemetry
+  }
+}
+
+
+module keyVault 'br/public:avm/res/key-vault/vault:0.13.0' = {
+  name: '${resourceNames.keyVault}-deploy'
+  scope: resourceGroup(resourceNames.sharedRg)
+  params: {
+    name: resourceNames.keyVault
+    location: primaryApim.location
+    tags: tags
+    enableTelemetry: enableTelemetry
+    enableVaultForTemplateDeployment: true
+    enableRbacAuthorization: true
+    privateEndpoints: [
+      {
+        name: '${resourceNames.keyVault}-${primaryApim.location}-pe'
+        subnetResourceId: resourceId(subscription().subscriptionId, resourceNames.networkingRg, 'Microsoft.Network/virtualNetworks/subnets', resourceNames.vnetPrimary, 'pe-services')
+        enableTelemetry: enableTelemetry
+        service: 'vault'
+      }
+    ]
+    accessPolicies: []
+    roleAssignments: [
+      {
+        principalId: userIdentity.outputs.principalId
+        roleDefinitionName: 'Key Vault Secrets User'
+      }
+    ]
+    publicNetworkAccess: 'Disabled'
+  }
+}
 module apimPrimary 'br/public:avm/res/api-management/service:0.9.1' = {
   name: resourceNames.apimPrimary
   scope: resourceGroup(resourceNames.apimRg)
-  dependsOn: [
-    vnetPrimary
-    vnetSecondary
-  ]
   params: {
     name: resourceNames.apimPrimary
     tags: tags
@@ -261,7 +341,7 @@ module apimPrimary 'br/public:avm/res/api-management/service:0.9.1' = {
     publisherName: publisherName
     sku: any(primaryApim.sku.?name) // only supporting a subset of skus for multi-region
     skuCapacity: secondaryApim.sku.?capacity
-    virtualNetworkType: 'External'
+    virtualNetworkType: 'Internal'
     subnetResourceId: vnetPrimary.outputs.subnetResourceIds[0]//resourceId(subscription().id, resourceNames.networkingRg, 'Microsoft.Network/virtualNetworks/subnets', resourceNames.vnetPrimary, primarySubnets[0].name)
     additionalLocations: [
       {
@@ -279,3 +359,26 @@ module apimPrimary 'br/public:avm/res/api-management/service:0.9.1' = {
   }
 } 
 
+module appgwPrimary 'modules/gateway/appgw.bicep' = {
+  name: 'appgwDeploy-primary'
+  scope: resourceGroup(resourceNames.networkingRg)
+  dependsOn: [
+    apimPrimary
+  ]
+  params: {
+    appGatewayName: resourceNames.appGwPrimary
+    appGatewayFQDN: appGatewayFqdn
+    location: primaryApim.location
+    appGatewaySubnetId: vnetPrimary.outputs.subnetResourceIds[1]
+    primaryBackendEndFQDN: '${apimPrimary.name}.azure-api.net'
+    keyVaultName: resourceNames.keyVault
+    keyVaultResourceGroupName: sharedRG.name
+    appGatewayCertType: appGatewayCertType
+    certKey: certKey
+    certData: certData
+    appGatewayPublicIpName: networking.outputs.appGatewayPublicIpName
+    deploymentIdentityName: shared.outputs.deploymentIdentityName
+    deploymentSubnetId: networking.outputs.deploymentSubnetId
+    deploymentStorageName: shared.outputs.deploymentStorageName
+  }
+}
